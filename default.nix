@@ -1,3 +1,3 @@
 { pkgs ? import <nixpkgs> {} }:
 
-pkgs.callPackage ./libTAS.nix {}
+pkgs.libsForQt5.callPackage ./libTAS.nix {}
