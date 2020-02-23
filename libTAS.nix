@@ -1,4 +1,4 @@
-{ pkgs, mkDerivation, automake, autoconf, autoreconfHook, qtbase, pkgconfig, xlibs, SDL2, alsaLib, ffmpeg }:
+{ lib, pkgs, mkDerivation, automake, autoconf, autoreconfHook, qtbase, pkgconfig, xlibs, SDL2, alsaLib, ffmpeg, file }:
 
 let
   dualArch = false;
@@ -13,4 +13,8 @@ in mkDerivation rec {
   buildInputs = [ qtbase xlibs.xcbutilcursor.dev SDL2.dev alsaLib.dev ffmpeg.dev ];
 
   configureFlags = if dualArch then [ "--with-i386" ] else [];
+
+  postFixup = ''
+    wrapProgram $out/bin/libTAS --suffix PATH : ${lib.makeBinPath [ file ]}
+  '';
 }
