@@ -37,6 +37,7 @@ in mkDerivation rec {
           fontconfig.lib freetype
         ]} \
         $file
+      echo "New rpath: $(patchelf --print-rpath $file)"
     done
   '';
 
