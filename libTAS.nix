@@ -63,6 +63,8 @@ in relevantStdenv.mkDerivation rec {
     mv $out/bin/libtas*.so $out/lib/
   '';
 
+  enableParallelBuilding = true;
+
   /*
   preFixup = ''
     for file in $out/{bin/libTAS,lib/libtas.so}; do
