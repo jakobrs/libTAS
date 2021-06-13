@@ -68,11 +68,11 @@ void add_lib(const char* library)
 DEFINE_ORIG_POINTER(dlopen)
 DEFINE_ORIG_POINTER(dlsym)
 
-#if defined(__APPLE__) && defined(__MACH__)
 /* dlopen_from is like dlopen, except it takes an extra argument specifying the "true" caller address.
- * it is marked as weak so that libTAS will still work if it's not present. */
+ * it is marked as weak so that libTAS will still work if it's not present.
+ *
+ * This function exists on macOS 10.14 and newer, and on Linux systems with glibc $(version) and newer. */
 extern "C" void *dlopen_from(const char *file, int mode, void *callerAddr) __attribute__((weak));
-#endif
 
 __attribute__((noipa)) void *dlopen(const char *file, int mode) __THROW {
     void *const callerAddr = __builtin_extract_return_addr(__builtin_return_address(0));
@@ -105,16 +105,13 @@ __attribute__((noipa)) void *dlopen(const char *file, int mode) __THROW {
     debuglogstdio(LCF_HOOK, "%s call with file %s", __func__, (file!=nullptr)?file:"<NULL>");
     void *result = nullptr;
 
-#if defined(__APPLE__) && defined(__MACH__)
     if (dlopen_from) {
         result = dlopen_from(file, mode, reinterpret_cast<void*>(callerAddr));
 
         if (result != nullptr) {
             add_lib(file);
         }
-    } else
-#endif
-    {
+    } else {
 #ifdef __unix__
         if (file != nullptr && file[0] != '\0' && std::strchr(file, '/') == nullptr) {
             /* Path should be searched using search paths, so let's
