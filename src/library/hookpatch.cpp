@@ -19,6 +19,7 @@
 
 #include "hookpatch.h"
 #include "dlhook.h"
+#include "interpose.h"
 #include "logging.h"
 #include <sys/mman.h>
 #include <string.h>
@@ -212,7 +213,7 @@ void hook_patch(const char* name, const char* library, void* tramp_function, voi
     }
 
     /* Open library */
-    NATIVECALL(handle = dlopen(libpath.c_str(), RTLD_LAZY));
+    NATIVECALL(handle = CUSTOM(dlopen)(libpath.c_str(), RTLD_LAZY));
 
     if (!handle) {
         debuglogstdio(LCF_HOOK | LCF_ERROR, "Could not load %s", library);
@@ -221,7 +222,7 @@ void hook_patch(const char* name, const char* library, void* tramp_function, voi
 
     /* Load function */
     void *orig_fun;
-    NATIVECALL(orig_fun = dlsym(handle, name));
+    NATIVECALL(orig_fun = CUSTOM(dlsym)(handle, name));
 
     if (!orig_fun) {
         debuglogstdio(LCF_HOOK | LCF_ERROR, "Could not load %s", name);

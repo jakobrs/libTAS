@@ -20,6 +20,7 @@
 #include "steamapiinternal.h"
 #include "../logging.h"
 #include "../hook.h"
+#include "../interpose.h"
 #include "steamapi.h"
 // #include <signal.h>
 #include <dlfcn.h>
@@ -101,7 +102,7 @@ void * SteamInternal_CreateInterface( const char *ver )
     auto end = symbol.find_last_not_of("0123456789");
     if (end != std::string::npos)
         symbol.resize(end + 1);
-    void *(*func)() = reinterpret_cast<void *(*)()>(dlsym(RTLD_DEFAULT, symbol.c_str()));
+    void *(*func)() = reinterpret_cast<void *(*)()>(CUSTOM(dlsym)(RTLD_DEFAULT, symbol.c_str()));
     if (func)
         return func();
     return nullptr;

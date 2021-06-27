@@ -31,7 +31,6 @@
 #include "backtrace.h"
 #include "GameHacks.h"
 #include <sys/stat.h>
-#include "../dyld_func_lookup_helper/dyld_func_lookup_helper.h"
 
 namespace libtas {
 
@@ -65,31 +64,28 @@ void add_lib(const char* library)
     }
 }
 
-DEFINE_ORIG_POINTER(dlopen)
-DEFINE_ORIG_POINTER(dlsym)
-
 #if defined(__APPLE__) && defined(__MACH__)
 /* dlopen_from is like dlopen, except it takes an extra argument specifying the "true" caller address.
  * it is marked as weak so that libTAS will still work if it's not present. */
 extern "C" void *dlopen_from(const char *file, int mode, void *callerAddr) __attribute__((weak));
 #endif
 
-__attribute__((noipa)) void *dlopen(const char *file, int mode) __THROW {
+DEFINE_ORIG_POINTER_MAYBE(dlopen)
+DEFINE_ORIG_POINTER_MAYBE(dlsym)
+
+__attribute__((noipa)) void *CUSTOM(dlopen)(const char *file, int mode) __THROW {
     void *const callerAddr = __builtin_extract_return_addr(__builtin_return_address(0));
 
-    if (!orig::dlopen) {
 #ifdef __unix__
+    if (!ORIG(dlopen)) {
         /* To access the real dlopen function, we use the fact that dlsym
          * calls internally _dl_sym. */
-        orig::dlopen = reinterpret_cast<decltype(orig::dlopen)>(_dl_sym(RTLD_NEXT, "dlopen", reinterpret_cast<void*>(dlopen)));
-#elif defined(__APPLE__) && defined(__MACH__)
-        /* Using the convenient function to locate a dyld function pointer */
-        dyld_func_lookup_helper("__dyld_dlopen", reinterpret_cast<void**>(&orig::dlopen));
-#endif
+        ORIG(dlopen) = reinterpret_cast<decltype(ORIG(dlopen))>(_dl_sym(RTLD_NEXT, "dlopen", reinterpret_cast<void*>(dlopen)));
     }
+#endif
 
     if (GlobalState::isNative()) {
-        return orig::dlopen(file, mode);
+        return ORIG(dlopen)(file, mode);
     }
 
     if (file != nullptr && std::strstr(file, "libpulse") != nullptr) {
@@ -136,7 +132,7 @@ __attribute__((noipa)) void *dlopen(const char *file, int mode) __THROW {
                 }
 
                 /* Open object of caller */
-                void *caller = orig::dlopen(dlname, RTLD_LAZY | RTLD_NOLOAD);
+                void *caller = ORIG(dlopen)(dlname, RTLD_LAZY | RTLD_NOLOAD);
                 if (caller != nullptr) {
                     Dl_serinfo size;
                     if (dlinfo(caller, RTLD_DI_SERINFOSIZE, &size) == 0) {
@@ -158,7 +154,7 @@ __attribute__((noipa)) void *dlopen(const char *file, int mode) __THROW {
                                     path += '/';
                                 path += file;
 
-                                result = orig::dlopen(path.c_str(), mode);
+                                result = ORIG(dlopen)(path.c_str(), mode);
                                 if (result != nullptr) {
                                     debuglogstdio(LCF_HOOK, "   Found at %s", name);
                                     add_lib(path.c_str());
@@ -181,7 +177,7 @@ __attribute__((noipa)) void *dlopen(const char *file, int mode) __THROW {
              * the cwd, absolute, or failed search path lookup above, so
              * try looking it up normally.
              */
-            result = orig::dlopen(file, mode);
+            result = ORIG(dlopen)(file, mode);
 
             if (result != nullptr)
                 add_lib(file);
@@ -210,7 +206,7 @@ __attribute__((noipa)) void *dlopen(const char *file, int mode) __THROW {
 
 void *find_sym(const char *name, bool original) {
     dlerror(); // Clear pending errors
-    void *addr = orig::dlsym(RTLD_DEFAULT, name);
+    void *addr = ORIG(dlsym)(RTLD_DEFAULT, name);
     if (dlerror() == nullptr) {
         Dl_info info;
         int res = dladdr(addr, &info);
@@ -228,20 +224,16 @@ void *find_sym(const char *name, bool original) {
     return addr;
 }
 
-void *dlsym(void *handle, const char *name) __THROW {
-    if (!orig::dlsym) {
+void *CUSTOM(dlsym)(void *handle, const char *name) __THROW {
 #ifdef __unix__
+    if (!ORIG(dlsym)) {
         /* Again, we use the internal `_dl_sym` function to access to the
          * location of the real `dlsym` function. This may seems weird, and is
          * also implementation-dependant, but it is simple. `_dl_sym` does not
          * have error-checking so we only use it here. */
-        orig::dlsym = reinterpret_cast<decltype(orig::dlsym)>(_dl_sym(RTLD_NEXT, "dlsym", reinterpret_cast<void*>(dlsym)));
-#elif defined(__APPLE__) && defined(__MACH__)
-        /* Using the convenient function to locate a dyld function pointer */
-        dyld_func_lookup_helper("__dyld_dlsym", reinterpret_cast<void**>(&orig::dlsym));
-#endif
-
+        ORIG(dlsym) = reinterpret_cast<decltype(ORIG(dlsym))>(_dl_sym(RTLD_NEXT, "dlsym", reinterpret_cast<void*>(dlsym)));
     }
+#endif
 
     /* dlsym() does some work besides the actual function, and that may call
      * other hooked functions that themselves call dlsym(). If we detect a recursion,
@@ -262,11 +254,11 @@ void *dlsym(void *handle, const char *name) __THROW {
             ret = _dl_sym(handle, name, reinterpret_cast<void*>(dlsym));
 #elif defined(__APPLE__) && defined(__MACH__)
             /* TODO */
-            ret = orig::dlsym(handle, name);
+            ret = ORIG(dlsym)(handle, name);
 #endif
         }
         else {
-            ret = orig::dlsym(handle, name);            
+            ret = ORIG(dlsym)(handle, name);
         }
         recurs_count--;
         return ret;
@@ -299,7 +291,7 @@ void *dlsym(void *handle, const char *name) __THROW {
             (strcmp(name, "localtime_r") == 0) ||
             (strcmp(name, "localtime64_r") == 0)) {
             void* libc_handle = dlopen("libc.so.6", RTLD_LAZY);
-            void* ret = orig::dlsym(libc_handle, name);
+            void* ret = ORIG(dlsym)(libc_handle, name);
             recurs_count--;
             return ret;
         }
@@ -331,7 +323,7 @@ void *dlsym(void *handle, const char *name) __THROW {
 
     void *addr = find_sym(name);
     if (addr == nullptr) {
-        addr = orig::dlsym(handle, name);
+        addr = ORIG(dlsym)(handle, name);
     }
 
 #ifdef __linux__
@@ -344,5 +336,8 @@ void *dlsym(void *handle, const char *name) __THROW {
     recurs_count--;
     return addr;
 }
+
+DYLD_INTERPOSE_MAYBE(dlopen)
+DYLD_INTERPOSE_MAYBE(dlsym)
 
 }

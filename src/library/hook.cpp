@@ -21,6 +21,7 @@
 #include "dlhook.h"
 #include "logging.h"
 #include <string>
+#include "interpose.h"
 #if defined(__APPLE__) && defined(__MACH__)
 #include <mach/task.h>
 #include <mach/mach.h>
@@ -41,7 +42,7 @@ bool link_function(void** function, const char* source, const char* library, con
         *function = dlvsym(RTLD_NEXT, source, version);
     if (*function == nullptr)
 #endif
-        NATIVECALL(*function = dlsym(RTLD_NEXT, source));
+        NATIVECALL(*function = CUSTOM(dlsym)(RTLD_NEXT, source));
 
     if (*function != nullptr) {
         debuglogstdio(LCF_HOOK, "Imported symbol %s function : %p", source, *function);
@@ -59,10 +60,10 @@ bool link_function(void** function, const char* source, const char* library, con
         if (! libpath.empty()) {
 
             /* Try to link again using a matching library */
-            NATIVECALL(handle = dlopen(libpath.c_str(), RTLD_LAZY));
+            NATIVECALL(handle = CUSTOM(dlopen)(libpath.c_str(), RTLD_LAZY));
 
             if (handle != NULL) {
-                NATIVECALL(*function = dlsym(handle, source));
+                NATIVECALL(*function = CUSTOM(dlsym)(handle, source));
 
                 if (*function != nullptr) {
                     debuglogstdio(LCF_HOOK, "Imported from lib %s symbol %s function : %p", libpath.c_str(), source, *function);
@@ -72,10 +73,10 @@ bool link_function(void** function, const char* source, const char* library, con
         }
 
         /* If it did not succeed, try to link using the given library */
-        NATIVECALL(handle = dlopen(library, RTLD_LAZY));
+        NATIVECALL(handle = CUSTOM(dlopen)(library, RTLD_LAZY));
 
         if (handle != NULL) {
-            NATIVECALL(*function = dlsym(handle, source));
+            NATIVECALL(*function = CUSTOM(dlsym)(handle, source));
 
             if (*function != nullptr) {
                 debuglogstdio(LCF_HOOK, "Imported from lib %s symbol %s function : %p", library, source, *function);
@@ -115,10 +116,10 @@ bool link_function(void** function, const char* source, const char* library, con
             if (strstr(image.imageFilePath, library)) {
                 /* We found a matching library. Load the library and look at symbol */
                 void* handle;
-                NATIVECALL(handle = dlopen(image.imageFilePath, RTLD_NOLOAD | RTLD_LAZY));
+                NATIVECALL(handle = CUSTOM(dlopen)(image.imageFilePath, RTLD_NOLOAD | RTLD_LAZY));
                     
                 if (handle != NULL) {
-                    NATIVECALL(*function = dlsym(handle, source));
+                    NATIVECALL(*function = CUSTOM(dlsym)(handle, source));
                     dlclose(handle);
                     if (*function != nullptr) {
                         debuglogstdio(LCF_HOOK, "Imported from mach lib %s symbol %s function: %p", image.imageFilePath, source, *function);

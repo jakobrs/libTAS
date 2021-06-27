@@ -23,6 +23,7 @@
 #include <dlfcn.h>
 #include <string>
 #include "global.h"
+#include "interpose.h"
 
 #if defined(__APPLE__) && defined(__MACH__)
 #include <mach-o/dyld.h>
@@ -79,15 +80,12 @@ void add_lib(const char* library);
  */
 void *find_sym(const char* name, bool original = false);
 
-OVERRIDE void *dlopen(const char *file, int mode) __THROW;
-OVERRIDE void *dlsym(void *handle, const char *name) __THROW;
+OVERRIDE void *CUSTOM(dlopen)(const char *file, int mode) __THROW;
+OVERRIDE void *CUSTOM(dlsym)(void *handle, const char *name) __THROW;
 
 #ifdef __unix__
 /* Declare internal implementation-dependent dlsym function */
 OVERRIDE void *_dl_sym(void *, const char *, void *);
-#elif defined(__APPLE__) && defined(__MACH__)
-/* Declare internal function to locate the address of a dyld function */
-OVERRIDE int _dyld_func_lookup(const char* name, void** address);
 #endif
 
 }

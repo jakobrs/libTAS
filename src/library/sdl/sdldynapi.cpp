@@ -26,6 +26,7 @@
 #include "../logging.h"
 #include "../dlhook.h"
 #include "../hook.h"
+#include "../interpose.h"
 
 #include <dlfcn.h>
 
@@ -54,11 +55,11 @@ enum {
      * LINK_NAMESPACE below will use the dynamic library instead. */
     void* h;
 #ifdef __unix__
-    NATIVECALL(h = dlopen(nullptr, RTLD_DEEPBIND));
+    NATIVECALL(h = CUSTOM(dlopen)(nullptr, RTLD_DEEPBIND));
 #elif defined(__APPLE__) && defined(__MACH__)
-    NATIVECALL(h = dlopen(nullptr, RTLD_FIRST));
+    NATIVECALL(h = CUSTOM(dlopen)(nullptr, RTLD_FIRST));
 #endif
-    NATIVECALL(orig::SDL_DYNAPI_entry = reinterpret_cast<decltype(orig::SDL_DYNAPI_entry)>(dlsym(h, "SDL_DYNAPI_entry")));
+    NATIVECALL(orig::SDL_DYNAPI_entry = reinterpret_cast<decltype(orig::SDL_DYNAPI_entry)>(CUSTOM(dlsym)(h, "SDL_DYNAPI_entry")));
 
     /* This looks weird to use dlopen/dlsym to find the current function pointer,
      * but in games that bundle their own libSDL (e.g. Iconoclasts), even using
@@ -68,14 +69,14 @@ enum {
     char* libtaspath;
     NATIVECALL(libtaspath = getenv("SDL_DYNAMIC_API"));
     void *libtas;
-    NATIVECALL(libtas = dlopen(libtaspath, RTLD_LAZY | RTLD_NOLOAD));
+    NATIVECALL(libtas = CUSTOM(dlopen)(libtaspath, RTLD_LAZY | RTLD_NOLOAD));
     if (libtas == nullptr) {
         debuglogstdio(LCF_SDL | LCF_ERROR, "Could not find already loaded libtas.so!");
         return 1;
     }
 
     void *current_func;
-    NATIVECALL(current_func = dlsym(libtas, "SDL_DYNAPI_entry"));
+    NATIVECALL(current_func = CUSTOM(dlsym)(libtas, "SDL_DYNAPI_entry"));
     if (current_func == nullptr) {
         debuglogstdio(LCF_SDL | LCF_ERROR, "Could not find own SDL_DYNAPI_entry function!");
         return 1;
@@ -109,7 +110,7 @@ enum {
     void **entries = static_cast<void **>(table);
 #define IF_IN_BOUNDS(FUNC) if (index::FUNC * sizeof(void *) < tablesize)
 #define SDL_LINK(FUNC) IF_IN_BOUNDS(FUNC) orig::FUNC = reinterpret_cast<decltype(&FUNC)>(entries[index::FUNC]); else debuglogstdio(LCF_ERROR | LCF_SDL | LCF_HOOK, "Could not import sdl dynapi symbol %s", #FUNC);
-#define SDL_HOOK(FUNC) IF_IN_BOUNDS(FUNC) entries[index::FUNC] = reinterpret_cast<void *>(dlsym(libtas, #FUNC));
+#define SDL_HOOK(FUNC) IF_IN_BOUNDS(FUNC) entries[index::FUNC] = reinterpret_cast<void *>(CUSTOM(dlsym)(libtas, #FUNC));
 #include "sdlhooks.h"
 
     dlclose(libtas);

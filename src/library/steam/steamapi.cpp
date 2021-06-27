@@ -20,6 +20,7 @@
 #include "steamapi.h"
 #include "../logging.h"
 #include "../hook.h"
+#include "../interpose.h"
 #include <signal.h>
 #ifdef __unix__
 #include <link.h>
@@ -116,8 +117,8 @@ static bool SteamGetInterfaceVersion()
     /* Load SteamAPI library */
     void* h;
     dlerror();
-    h = dlopen("libsteam_api.so", RTLD_LAZY);
-    if (!h) h = dlopen("libsteam_api64.so", RTLD_LAZY);
+    h = CUSTOM(dlopen)("libsteam_api.so", RTLD_LAZY);
+    if (!h) h = CUSTOM(dlopen)("libsteam_api64.so", RTLD_LAZY);
 
     if (!h) {
         char* error = dlerror();
@@ -138,7 +139,7 @@ static bool SteamGetInterfaceVersion()
     char* steam_path = l->l_name;
 
 #elif defined(__APPLE__) && defined(__MACH__)
-    void* f = dlsym(h, "SteamAPI_Init");
+    void* f = CUSTOM(dlsym)(h, "SteamAPI_Init");
     if (!f) {
         debuglogstdio(LCF_STEAM | LCF_WARNING, "Could not find a symbol inside Steam library");
         return false;        

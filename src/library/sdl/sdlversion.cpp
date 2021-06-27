@@ -19,6 +19,7 @@
 
 #include "../hook.h"
 #include "../logging.h"
+#include "../interpose.h"
 #include <dlfcn.h>
 
 #include <SDL2/SDL.h> // SDL_version
@@ -45,9 +46,9 @@ int get_sdlversion(void)
 
     /* First look if symbols are already accessible */
     if (!orig::SDL_GetVersion) {
-        NATIVECALL(orig::SDL_Linked_Version = (decltype(orig::SDL_Linked_Version)) dlsym(RTLD_DEFAULT, "SDL_Linked_Version"));
+        NATIVECALL(orig::SDL_Linked_Version = (decltype(orig::SDL_Linked_Version)) CUSTOM(dlsym)(RTLD_DEFAULT, "SDL_Linked_Version"));
         if (!orig::SDL_Linked_Version) {
-            NATIVECALL(orig::SDL_GetVersion = (decltype(orig::SDL_GetVersion)) dlsym(RTLD_DEFAULT, "SDL_GetVersion"));
+            NATIVECALL(orig::SDL_GetVersion = (decltype(orig::SDL_GetVersion)) CUSTOM(dlsym)(RTLD_DEFAULT, "SDL_GetVersion"));
         }
     }
 
@@ -74,11 +75,11 @@ int get_sdlversion(void)
     /* If not, determine which library was already dynamically loaded. */
     void *sdl1, *sdl2;
 #ifdef __unix__
-    NATIVECALL(sdl1 = dlopen("libSDL-1.2.so.0", RTLD_NOLOAD));
-    NATIVECALL(sdl2 = dlopen("libSDL2-2.0.so.0", RTLD_NOLOAD));
+    NATIVECALL(sdl1 = CUSTOM(dlopen)("libSDL-1.2.so.0", RTLD_NOLOAD));
+    NATIVECALL(sdl2 = CUSTOM(dlopen)("libSDL2-2.0.so.0", RTLD_NOLOAD));
 #elif defined(__APPLE__) && defined(__MACH__)
-    NATIVECALL(sdl1 = dlopen("libSDL-1.2.0.dylib", RTLD_NOLOAD));
-    NATIVECALL(sdl2 = dlopen("libSDL2-2.0.0.dylib", RTLD_NOLOAD));
+    NATIVECALL(sdl1 = CUSTOM(dlopen)("libSDL-1.2.0.dylib", RTLD_NOLOAD));
+    NATIVECALL(sdl2 = CUSTOM(dlopen)("libSDL2-2.0.0.dylib", RTLD_NOLOAD));
 #endif
 
     if (sdl1 && !sdl2) {
