@@ -76,6 +76,9 @@ extern "C" void *dlopen_from(const char *file, int mode, void *callerAddr) __att
 
 __attribute__((noipa)) void *dlopen(const char *file, int mode) __THROW {
     void *const callerAddr = __builtin_extract_return_addr(__builtin_return_address(0));
+#if defined(__APPLE__) && defined(__MACH__)
+    static void *(*__dyld_dlopen_internal)(const char *file, int mode, void *callerAddr);
+#endif
 
     if (!orig::dlopen) {
 #ifdef __unix__
@@ -85,6 +88,14 @@ __attribute__((noipa)) void *dlopen(const char *file, int mode) __THROW {
 #elif defined(__APPLE__) && defined(__MACH__)
         /* Using the convenient function to locate a dyld function pointer */
         dyld_func_lookup_helper("__dyld_dlopen", reinterpret_cast<void**>(&orig::dlopen));
+        /* Note that `__dyld_dlopen_internal` doesn't exist on macOS 10.13 and earlier */
+        if (dyld_func_lookup_helper("__dyld_dlopen_internal", reinterpret_cast<void**>(&__dyld_dlopen_internal)) == 0) {
+            /* If the lookup failed, explicitly set __dyld_dlopen_internal to null.
+             * This appears to be the default behaviour, but it's not documented
+             * so we set it explicitly.
+             */
+            __dyld_dlopen_internal = nullptr;
+        }
 #endif
     }
 
@@ -107,7 +118,13 @@ __attribute__((noipa)) void *dlopen(const char *file, int mode) __THROW {
 
 #if defined(__APPLE__) && defined(__MACH__)
     if (dlopen_from) {
-        result = dlopen_from(file, mode, reinterpret_cast<void*>(callerAddr));
+        result = dlopen_from(file, mode, callerAddr);
+
+        if (result != nullptr) {
+            add_lib(file);
+        }
+    } else if (__dyld_dlopen_internal != nullptr) {
+        result = __dyld_dlopen_internal(file, mode, callerAddr);
 
         if (result != nullptr) {
             add_lib(file);
