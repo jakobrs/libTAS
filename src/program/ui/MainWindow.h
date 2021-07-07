@@ -133,6 +133,8 @@ public:
     QActionGroup *slowdownGroup;
     QActionGroup *fastforwardGroup;
 
+    QAction *sigintAction;
+
     QAction *mouseAction;
     QAction *mouseModeAction;
     QAction *mouseWarpAction;

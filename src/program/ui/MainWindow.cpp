@@ -846,6 +846,11 @@ void MainWindow::createMenus()
     luaMenu->addAction(tr("Execute Lua script..."), this, &MainWindow::slotLuaExecute);
     luaMenu->addAction(tr("Reset Lua VM"), this, &MainWindow::slotLuaReset);
 
+    toolsMenu->addSeparator();
+
+    sigintAction = toolsMenu->addAction(tr("Raise SIGINT upon game launch (if debugging)"));
+    sigintAction->setCheckable(true);
+
     /* Input Menu */
     QMenu *inputMenu = menuBar()->addMenu(tr("Input"));
     inputMenu->setToolTipsVisible(true);
@@ -1306,6 +1311,8 @@ void MainWindow::slotLaunch()
     setListFromRadio(channelGroup, context->config.sc.audio_channels);
 
     setListFromRadio(loggingOutputGroup, context->config.sc.logging_status);
+
+    context->config.sc.sigint_upon_launch = context->attach_gdb && sigintAction->isChecked();
 
     context->config.sc.mouse_support = mouseAction->isChecked();
     setListFromRadio(joystickGroup, context->config.sc.nb_controllers);
